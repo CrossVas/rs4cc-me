@@ -1,131 +1,92 @@
-buildscript {
-    repositories {
-        maven { url = 'https://files.minecraftforge.net/maven' }
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public' }
-        jcenter()
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
-        classpath group: 'org.spongepowered', name: 'mixingradle', version: '0.7-SNAPSHOT'
-    }
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
 }
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.spongepowered.mixin'
-// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
-apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
 
-def extraModsDir = "mods-${minecraft_version}"
+version = mod_version
+group = mod_group_id
 
-version = "${mod_version}"
-group = 'mirality'
-archivesBaseName = "Storage4ComputerCraft-${minecraft_version}"
+base {
+    archivesName = mod_id
+}
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(8) // Mojang ships Java 8 to end users, so your mod should target Java 8.
-compileJava.options.encoding = 'UTF-8'
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 minecraft {
-    mappings channel: 'official', version: "${minecraft_version}"
-    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
-    
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
 
     runs {
-        client {
+        configureEach {
             workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
 
-            //property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
-            property 'forge.logging.markers', ''
             property 'forge.logging.console.level', 'debug'
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
 
             mods {
-                storage4computercraft {
+                "${mod_id}" {
                     source sourceSets.main
                 }
             }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
         }
 
         server {
-            workingDirectory project.file('run')
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
 
-            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
-            property 'forge.logging.console.level', 'debug'
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-
-            mods {
-                storage4computercraft {
-                    source sourceSets.main
-                }
-            }
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
         }
 
         data {
-            workingDirectory project.file('run')
+            workingDirectory project.file('run-data')
 
-            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
-            property 'forge.logging.console.level', 'debug'
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-
-            args '--mod', 'storage4computercraft', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-
-            mods {
-                storage4computercraft {
-                    source sourceSets.main
-                }
-            }
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
         }
     }
 }
 
-sourceSets {
-    main.resources.srcDirs += 'src/generated/resources'
-}
-
-processResources {
-    inputs.property 'version', project.version
-
-    from(sourceSets.main.resources.srcDirs) {
-        include 'META-INF/mods.toml'
-        expand 'version': project.version
-    }
-    from(sourceSets.main.resources.srcDirs) {
-        exclude 'META-INF/mods.toml'
-    }
-}
+// Include resources generated by data generators.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    flatDir {
-        name "extra-mods"
-        dir file(extraModsDir)
+    maven {
+        url "https://www.cursemaven.com"
         content {
-            includeGroup 'extra-mods'
+            includeGroup "curse.maven"
         }
     }
     maven {
-        name 'TOP'
-        url 'https://maven.tterrag.com/'
-        content {
-            includeGroup 'mcjty.theoneprobe'
-        }
+        // location of the maven that hosts JEI files before January 2023
+        name = "Progwml6's maven"
+        url = "https://dvs1.progwml6.com/files/maven/"
     }
     maven {
-        name 'HWYLA'
-        url 'https://maven.tehnut.info'
-        content {
-            includeGroup 'mcp.mobius.waila'
-        }
+        // location of the maven that hosts JEI files since January 2023
+        name = "Jared's maven"
+        url = "https://maven.blamejared.com/"
     }
     maven {
-        name 'JEI'
-        url 'https://dvs1.progwml6.com/files/maven'
+        // location of a maven mirror for JEI files, as a fallback
+        name = "ModMaven"
+        url = "https://modmaven.dev"
+    }
+    maven {
+        name 'CC Tweaked'
+        url 'https://squiddev.cc/maven/'
         content {
-            includeGroup 'mezz.jei'
+            includeGroup 'org.squiddev'
         }
     }
     maven {
@@ -142,92 +103,69 @@ repositories {
             includeGroup 'appeng'
         }
     }
-    maven {
-        name 'CC Tweaked'
-        url 'https://squiddev.cc/maven/'
-        content {
-            includeGroup 'org.squiddev'
-        }
-    }
+
 }
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    compile fg.deobf("org.squiddev:cc-tweaked-${cc_version}")
+    compileOnly("cc.tweaked:cc-tweaked-$minecraft_version-core-api:$cc_version")
+    compileOnly(fg.deobf("cc.tweaked:cc-tweaked-$minecraft_version-forge-api:$cc_version"))
+    compileOnly(fg.deobf("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cc_version"))
+    runtimeOnly(fg.deobf("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cc_version"))
 
-    compileOnly fg.deobf("com.refinedmods:refinedstorage:${rs_version}")
-    compileOnly (fg.deobf("appeng:appliedenergistics2:${ae2_version}:api") { transitive = false })
-    compileOnly fg.deobf("mcjty.theoneprobe:TheOneProbe-${top_version}:api")
-    compileOnly fg.deobf("mcp.mobius.waila:Hwyla:${hwyla_version}:api")
+    implementation fg.deobf("curse.maven:jade-324717:${jade_id}")
 
-    // these are separate so we can test without them loaded
-    runtimeOnly fg.deobf("com.refinedmods:refinedstorage:${rs_version}")
-    runtimeOnly (fg.deobf("appeng:appliedenergistics2:${ae2_version}") { transitive = false })
-    runtimeOnly fg.deobf("mcjty.theoneprobe:TheOneProbe-${top_version}")
-    runtimeOnly fg.deobf("mcp.mobius.waila:Hwyla:${hwyla_version}")
-    runtimeOnly fg.deobf("mezz.jei:jei-${jei_version}")
-
-    // extra mods for testing
-    for (mod in fileTree(dir: extraModsDir, include: '*.jar')) {
-        def basename = mod.name.substring(0, mod.name.length() - ".jar".length())
-        def sep = basename.lastIndexOf('-')
-        assert sep != -1
-        def name = basename.substring(0, sep)
-        def version = basename.substring(sep + 1)
-        runtimeOnly fg.deobf("extra-mods:$name:$version")
-    }
-
-    annotationProcessor 'org.spongepowered:mixin:0.8.2:processor'
-    testAnnotationProcessor 'org.spongepowered:mixin:0.8.2:processor'
+    compileOnly(fg.deobf("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"))
+    compileOnly(fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"))
+    runtimeOnly(fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}"))
 }
 
-jar {
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
     manifest {
         attributes([
-            "Specification-Title": "storage4computercraft",
-            "Specification-Vendor": "Mirality",
-            "Specification-Version": "1",
-            "Implementation-Title": project.name,
-            "Implementation-Version": "${version}",
-            "Implementation-Vendor" :"Mirality",
-            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1', // We are version 1 of ourselves
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
+
+    finalizedBy 'reobfJar'
 }
 
-jar.finalizedBy('reobfJar') 
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
-
-task deobfJar(type: Jar) {
-    from sourceSets.main.output
-    classifier 'deobf'
-}
-
-artifacts {
-    archives jar
-    archives sourcesJar
-    archives deobfJar
-}
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
-            groupId = project.group
-            artifactId = project.archivesBaseName
-            version = project.version
+        register('mavenJava', MavenPublication) {
             artifact jar
-            artifact sourcesJar
-            artifact deobfJar
         }
     }
     repositories {
         maven {
-            url "file:///${project.projectDir}/mcmodsrepo"
+            url "file://${project.projectDir}/mcmodsrepo"
         }
     }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }
